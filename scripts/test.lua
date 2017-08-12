@@ -45,7 +45,8 @@ for i, v in ipairs(batchedTestData) do
     io.write(string.format('\rBatch number: %d/%d', i, testDataNum))
     io.flush()
 
-    local dataMask = torch.ne(v.data[2], 1):double():reshape(batchSize, maxAbsLength)
+
+    local dataMask = torch.gt(v.data[2], 1):double():reshape(batchSize, maxAbsLength)
     local groundTruthMask = torch.eq(v.label, 1):double()
     local randomPick = math.ceil(math.random() * batchSize)
 
@@ -55,9 +56,9 @@ for i, v in ipairs(batchedTestData) do
         model:cuda()
     end
 
-    local output = model:forward(v.data)
+    local output = model:forward(v.data):cmul(dataMask)
     local topIdx
-    _, topIdx = output:topk(params.top)
+    _, topIdx = output:topk(params.top, true) -- Find the index of top 10 scores
 
     assert(topIdx:size()[1] == options.batchSize, '[ERROR] topIdx line number wrong.')
     assert(topIdx:size()[2] == params.top, '[ERROR] top number wrong.')
@@ -73,7 +74,6 @@ for i, v in ipairs(batchedTestData) do
     for j = 1, sampleData:size()[1] do
         local idx = sampleData[j]
         local groundTruth = sampleLabel[j]
-
 
         if idx > 1 then
             assert(sampleOutput[j] ~= 0, '[ERROR] position wrong.')
