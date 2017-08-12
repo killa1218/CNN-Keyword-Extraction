@@ -45,7 +45,6 @@ for i, v in ipairs(batchedTestData) do
     io.write(string.format('\rBatch number: %d/%d', i, testDataNum))
     io.flush()
 
-
     local dataMask = torch.gt(v.data[2], 1):double():reshape(batchSize, maxAbsLength)
     local groundTruthMask = torch.eq(v.label, 1):double()
     local randomPick = math.ceil(math.random() * batchSize)
