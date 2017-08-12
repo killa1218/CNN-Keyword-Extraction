@@ -3,7 +3,7 @@
 --- DateTime: 17-8-3 下午7:30
 ---
 
-print("Start time: " .. os.time())
+print("Start time: " .. os.date('%m-%d %H:%M:%S', os.time()))
 
 require 'nn'
 require 'torch'
@@ -40,9 +40,6 @@ local rawDataset = torch.load('data/nostem.nopunc.case/discrete/ke20k_training.j
 local validData = torch.load('data/nostem.nopunc.case/discrete/ke20k_validation.json.t7')
 local vocab = torch.load('data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7')
 local emb = vocab.idx2vec
-local data = rawDataset.data
-local label = rawDataset.label
-local dataSize = #data
 local validDataSize = batchSize -- TODO 强行固定eval data size
 
 if gpu then
@@ -60,46 +57,14 @@ logger:style{'-', '-'}
 
 
 -- Build training data
-local batchedDataset = {}
 local validDataset = {}
 
 -- Batch 化数据
 -- Training data
 print("Making batch training data...")
-local i = 1 -- Data index
+require 'utils'
 
-while i <= dataSize do -- 每次生成一个batch
-    local batchData = torch.LongTensor(batchSize * maxAbsLength):fill(1)
-    local batchLabel = torch.DoubleTensor(batchSize, maxAbsLength):fill(0)
-
-    for dataIndex = 1, batchSize do
-        if i <= dataSize then
-            local oneData = data[i]
-            local oneLabel = label[i]
-            local len = oneData:size(1)
-            local padSize = maxAbsLength - len
-            local startPos = 1 + math.floor(padSize / 2)
-            local endPos = maxAbsLength - math.ceil(padSize / 2)
-            local dataBase = (dataIndex - 1) * maxAbsLength
-
-            batchData[{{dataBase + startPos, dataBase + endPos}}]:copy(oneData)
-            batchLabel[dataIndex][{{startPos, endPos}}]:copy(oneLabel)
-            i = i + 1
-        else
-            i = i + 1
-            break
-        end
-
-        io.write('\riter: ' .. i)
-        io.flush()
-    end
-
-    if gpu then
-        table.insert(batchedDataset, {data = {emb, batchData:cuda()}, label = batchLabel:cuda()})
-    else
-        table.insert(batchedDataset, {data = {emb, batchData}, label = batchLabel})
-    end
-end
+local batchedDataset = makeBatchData(rawDataset, emb, options)
 print("Finished batch data building.")
 
 -- Validation data
@@ -206,11 +171,14 @@ for iter = 1, epoch do
             local lossPair = {lossFactor * l[1] / num, lossFactor * validationLoss}
 
             logger:add(lossPair)
-            --logger:plot()
+
+            if options.plot then
+                logger:plot()
+            end
         end
     end
 end
 
 torch.save('../trainings/model.t7', {options = options, model = model})
 
-print("End time: " .. os.time())
+print("End time: " .. os.date('%m-%d %H:%M:%S', os.time()))
