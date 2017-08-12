@@ -4,12 +4,15 @@
 ---
 
 require 'torch'
+require 'nn'
 require 'utils'
+require 'cutorch'
+require 'cunn'
 
 local cmd = torch:CmdLine()
 
 cmd:option('-model', 'trainings/model.t7', 'Model path. [trainings/model.t7]')
-cmd:option('-data', 'data/ke20k_testing.json', 'Path of test data. [data/ke20k_testing.json]')
+cmd:option('-data', 'data/nostem.nopunc.case/discrete/ke20k_testing.json.t7', 'Path of test data. [data/ke20k_testing.json]')
 cmd:option('-top', 10, 'Get top [10] words to be result.')
 cmd:option('-sample', 'test/test_sample.txt', 'Sample test result path. [test/test_sample.txt]')
 cmd:option('-vocab', 'data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7', 'Vocabulary file path. [data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7]')
@@ -25,12 +28,13 @@ local maxAbsLength = options.maxAbsLength
 local rawTestData = torch.load(params.data)
 local vocab = torch.load(params.vocab)
 local emb = vocab.idx2vec
+emb = emb:cuda()
 local i2w = vocab.idx2word
 local testResult = params.sample
-local f = open(testResult, 'w')
+local f = io.open(testResult, 'w')
 
 local batchedTestData = makeBatchData(rawTestData, emb, options)
-
+local testDataNum = #batchedTestData
 
 local totalRightNum = 0
 local totalLabelNum = 0
@@ -38,17 +42,18 @@ local totalDataNum = 0
 local coveredDataNum = 0
 
 for i, v in ipairs(batchedTestData) do
-    io.write('\rBatch number: ' .. i)
+    io.write(string.format('\rBatch number: %d/%d', i, testDataNum))
     io.flush()
 
     local dataMask = torch.ne(v.data[2], 1):double():reshape(batchSize, maxAbsLength)
     local groundTruthMask = torch.eq(v.label, 1):double()
     local randomPick = math.ceil(math.random() * batchSize)
 
-    --if options.gpu then
-    --    mask = mask:cuda()
-    --    model:cuda()
-    --end
+    if options.gpu then
+        dataMask = dataMask:cuda()
+        groundTruthMask = groundTruthMask:cuda()
+        model:cuda()
+    end
 
     local output = model:forward(v.data)
     local topIdx
@@ -59,37 +64,40 @@ for i, v in ipairs(batchedTestData) do
 
     -- Log the random selected sample test data to a file. (each batch one sample)
     local sampleData = v.data[2]:reshape(batchSize, maxAbsLength)[randomPick]
-    local sampleLabel = sampleData:cmul(groundTruthMask[randomPick]) -- Contains indexs of keywords
-    local sampleOutput = output[randomPick]:cmul(dataMask)
+    local sampleLabel = torch.cmul(sampleData, groundTruthMask[randomPick]) -- Contains indexs of keywords
+    local sampleOutput = torch.cmul(output[randomPick], dataMask[randomPick])
+    local sampleTopIdx = topIdx[randomPick]
     local keywords = {}
 
-    f.write('Passage: ')
+    f:write('Passage: ')
     for j = 1, sampleData:size()[1] do
         local idx = sampleData[j]
         local groundTruth = sampleLabel[j]
 
+
         if idx > 1 then
             assert(sampleOutput[j] ~= 0, '[ERROR] position wrong.')
-            f.write(string.format('%s(%.3f) ', i2w[idx], sampleOutput[j]))
+            f:write(string.format('%s(%.3f) ', i2w[idx], sampleOutput[j]))
         end
 
         if groundTruth > 1 then
             table.insert(keywords, i2w[groundTruth])
         end
     end
-    f.write('\n') -- End writing labeled passage
+    f:write('\n') -- End writing labeled passage
 
-    f.write('Key words: ')
+    f:write('Key words: ')
     for _, k in pairs(keywords) do
-        f.write(string.format('%s ', k))
+        f:write(string.format('%s ', k))
     end
-    f.write('\n') -- End writing ground truth
+    f:write('\n') -- End writing ground truth
 
-    f.write(string.format('Top %d words: ', params.top))
-    for _, k in pairs(topIdx) do
-        f.write(string.format('%s ', i2w[sampleData[k]]))
+    f:write(string.format('Top %d words: ', params.top))
+    for ii = 1, sampleTopIdx:size()[1] do
+        local k = sampleTopIdx[ii]
+        f:write(string.format('%s ', i2w[sampleData[k]]))
     end
-    f.write('\n\n') -- End writing one sample
+    f:write('\n\n') -- End writing one sample
 
 
     -- Count right predictions
@@ -114,5 +122,5 @@ print(string.format('Precision: %.4f', precision))
 print(string.format('Recall: %.4f', recall))
 print(string.format('F1 score: %.4f', f1))
 
-f.write(string.format('Precision: %.4f\nRecall: %.4f\nF1 score: %.4f\n', precision, recall, f1))
+f:write(string.format('Precision: %.4f\nRecall: %.4f\nF1 score: %.4f\n', precision, recall, f1))
 f:close()
