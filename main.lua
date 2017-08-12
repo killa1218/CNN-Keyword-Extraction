@@ -52,7 +52,7 @@ end
 
 -- Build logger
 local logger = optim.Logger('training.cuda.log')
-logger:setNames{'training loss', 'validation loss'}
+logger:setNames{'training loss', 'validation loss', 'output mean', 'output variance'}
 logger:style{'-', '-'}
 
 
