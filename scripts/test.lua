@@ -118,7 +118,7 @@ local precision = totalRightNum / totalLabelNum
 local recall = coveredDataNum / totalDataNum
 local f1 = 2 * precision * recall / (precision + recall)
 
-print(string.format('Precision: %.4f', precision))
+print(string.format('\nPrecision: %.4f', precision))
 print(string.format('Recall: %.4f', recall))
 print(string.format('F1 score: %.4f', f1))
 
