@@ -11,8 +11,6 @@ build
 build.luarocks
 test/tst2012.en
 data/*
-!data/prepare-iwslt14.sh
-data-bin
 trainings
 
 
