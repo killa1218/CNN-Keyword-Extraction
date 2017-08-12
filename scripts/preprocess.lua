@@ -366,7 +366,7 @@ function tokenize(str)
     end
 
     str:trimAll()
-    str = str:gsub("～t～", "'t"):gsub("～d～", "'d"):gsub("～s～", "'s"):gsub("～m～", "-"):gsub("～u～", "_")
+    str = str:gsub("～t～", "'t "):gsub("～d～", "'d "):gsub("～s～", "'s "):gsub("～m～", "-"):gsub("～u～", "_")
 
     return str:split(" ")
 end

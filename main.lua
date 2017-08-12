@@ -1,8 +1,16 @@
+---
+--- Created by killa.
+--- DateTime: 17-8-3 下午7:30
+---
+
 print("Start time: " .. os.time())
 
 require 'nn'
 require 'torch'
 require 'optim'
+require 'model.plaincnn'
+
+local options = require 'options'
 
 -- vocab structure:
 --  {
@@ -18,41 +26,31 @@ require 'optim'
 --      }
 --  }
 
--- Options
-local options = {}
+local epoch = options.epoch
+local batchSize = options.batchSize
+local lr = options.lr
+local lrd = options.lrd
+local gpu = options.gpu
+local logInterval = options.logInterval
+local maxAbsLength = options.maxAbsLength
+local logFilePath = options.logFile
 
-local epoch = 10
-local batchSize = 128
-local lr = 0.001
-local lrd = 0.05
-local gpu = true
-local kernalWidth = 7
-local convLayer = 4
-local logInterval = 1000
-local fineTune = false
-local maxAbsLength = 500
-local embDimension = 300
-local channelSize = 500
-
-if gpu then
-    require 'cunn'
-    require 'cutorch'
-end
-
-local rawDataset = torch.load('../data/nostem.nopunc.case/discrete/ke20k_training.json.t7')
-local validData = torch.load('../data/nostem.nopunc.case/discrete/ke20k_validation.json.t7')
-local vocab = torch.load('../data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7')
-
+-- Load data
+local rawDataset = torch.load('data/nostem.nopunc.case/discrete/ke20k_training.json.t7')
+local validData = torch.load('data/nostem.nopunc.case/discrete/ke20k_validation.json.t7')
+local vocab = torch.load('data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7')
 local emb = vocab.idx2vec
-
-if gpu then
-    emb = emb:cuda()
-end
-
 local data = rawDataset.data
 local label = rawDataset.label
 local dataSize = #data
 local validDataSize = batchSize -- TODO 强行固定eval data size
+
+if gpu then
+    require 'cunn'
+    require 'cutorch'
+    emb = emb:cuda()
+    logFilePath = logFilePath.gsub('.log', '_cuda.log')
+end
 
 
 -- Build logger
@@ -64,17 +62,6 @@ logger:style{'-', '-'}
 -- Build training data
 local batchedDataset = {}
 local validDataset = {}
-
-function table.slice(tbl, first, last, step)
-    local sliced = {}
-
-    for i = first or 1, last or #tbl, step or 1 do
-        sliced[#sliced+1] = tbl[i]
-    end
-
-    return sliced
-end
-
 
 -- Batch 化数据
 -- Training data
@@ -150,40 +137,7 @@ print('\rFinished validation data building.')
 
 ------------------------------------------------------------------------------------------------------------------------
 -- Build MODEL
--- MODEL Build index
-local modelLookup = nn.Sequential()
-modelLookup:add(nn.Index(1))
-
-
--- MODEL Build reshape
-local modelReshape = nn.Reshape(batchSize, maxAbsLength, embDimension)
-
-
--- MODEL Build padding
-local leftPadSize = math.floor((kernalWidth - 1) / 2)
-local rightPadSize = kernalWidth - 1 - leftPadSize
-local modelPadding = nn.Sequential():add(nn.Padding(2, -leftPadSize)):add(nn.Padding(2, rightPadSize))
-
--- MODEL Build convolution
-local modelConvolution = nn.Sequential()
---modelConvolution:add(nn.TemporalConvolution(300, 1, kernalWidth)):add(nn.Sigmoid())
-modelConvolution:add(nn.TemporalConvolution(300, channelSize, kernalWidth)):add(nn.Sigmoid())
-for i = 1, convLayer - 3 do
-    local localPad = nn.Sequential():add(nn.Padding(2, -leftPadSize)):add(nn.Padding(2, rightPadSize))
-    modelConvolution:add(localPad):add(nn.TemporalConvolution(channelSize, channelSize, kernalWidth)):add(nn.Sigmoid())
-end
-
-local finalPad = nn.Sequential():add(nn.Padding(2, -leftPadSize)):add(nn.Padding(2, rightPadSize))
-modelConvolution:add(finalPad):add(nn.TemporalConvolution(channelSize, math.floor(channelSize / 2), kernalWidth)):add(nn.Sigmoid())
-finalPad = nn.Sequential():add(nn.Padding(2, -leftPadSize)):add(nn.Padding(2, rightPadSize))
-modelConvolution:add(finalPad):add(nn.TemporalConvolution(math.floor(channelSize / 2), 1, kernalWidth)):add(nn.Sigmoid())
-
-
--- MODEL Build whole model
-local model = nn.Sequential()
-local padding = nn.Sequential():add(modelLookup):add(modelReshape):add(modelPadding)
-model:add(padding):add(modelConvolution):add(nn.Reshape(batchSize, maxAbsLength))
-
+local model = plaincnn(options)
 
 -- Build criterion
 --local criterion = nn.MSECriterion()
@@ -252,9 +206,11 @@ for iter = 1, epoch do
             local lossPair = {lossFactor * l[1] / num, lossFactor * validationLoss}
 
             logger:add(lossPair)
-            logger:plot()
+            --logger:plot()
         end
     end
 end
+
+torch.save('../trainings/model.t7', {options = options, model = model})
 
 print("End time: " .. os.time())
