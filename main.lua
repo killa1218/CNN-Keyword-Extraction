@@ -46,7 +46,7 @@ if gpu then
     require 'cunn'
     require 'cutorch'
     emb = emb:cuda()
-    logFilePath = logFilePath.gsub('.log', '_cuda.log')
+    logFilePath = logFilePath:gsub('.log', '_cuda.log')
 end
 
 
@@ -146,6 +146,14 @@ for iter = 1, epoch do
             local outputs = model:forward(v.data)
             outputs:cmul(mask)
 
+            if i % math.floor(logInterval / batchSize) == 0 then
+                local means = torch.mean(outputs, 2)
+                local vars = torch.var(outputs, 2)
+                local lossPair = {0, 0, torch.mean(means), torch.mean(vars)}
+
+                logger:add(lossPair)
+            end
+
             assert(outputs:size(1) == v.label:size(1))
 
             local loss = criterion:forward(outputs, v.label)
@@ -168,7 +176,7 @@ for iter = 1, epoch do
             local validationLoss = criterion:forward(validationOutput, validDataset.label)
             validationLoss = validationLoss / validDataset.num
 
-            local lossPair = {lossFactor * l[1] / num, lossFactor * validationLoss}
+            local lossPair = {lossFactor * l[1] / num, lossFactor * validationLoss, 0, 0}
 
             logger:add(lossPair)
 
