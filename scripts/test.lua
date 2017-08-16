@@ -11,11 +11,11 @@ require 'cunn'
 
 local cmd = torch:CmdLine()
 
-cmd:option('-model', 'trainings/model.t7', 'Model path. [trainings/model.t7]')
-cmd:option('-data', 'data/nostem.nopunc.case/discrete/ke20k_testing.json.t7', 'Path of test data. [data/ke20k_testing.json]')
-cmd:option('-top', 10, 'Get top [10] words to be result.')
-cmd:option('-sample', 'test/test_sample.txt', 'Sample test result path. [test/test_sample.txt]')
-cmd:option('-vocab', 'data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7', 'Vocabulary file path. [data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7]')
+cmd:option('-model', 'trainings/model.t7', 'Model path.')
+cmd:option('-data', 'data/nostem.nopunc.case/discrete/ke20k_testing.json.t7', 'Path of test data.')
+cmd:option('-top', 10, 'Get top [top] words to be result.')
+cmd:option('-sample', 'test/test_sample.txt', 'Sample test result path.')
+cmd:option('-vocab', 'data/nostem.nopunc.case/ke20k.nostem.nopunc.case.vocab.t7', 'Vocabulary file path.')
 
 local params = cmd:parse(arg)
 

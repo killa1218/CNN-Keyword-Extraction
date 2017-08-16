@@ -185,8 +185,8 @@ for iter = 1, epoch do
             end
         end
     end
-end
 
-torch.save('../trainings/model.t7', {options = options, model = model})
+    torch.save(string.format('../trainings/model_%d.t7', iter), {options = options, model = model})
+end
 
 print("End time: " .. os.date('%m-%d %H:%M:%S', os.time()))
