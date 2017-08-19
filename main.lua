@@ -130,6 +130,8 @@ local lossFactor = batchSize * maxAbsLength
 for iter = 1, epoch do
     print('\nTraining epoch ' .. iter .. '\n')
 
+    torch.save(string.format('trainings/model_%d.t7', iter), {options = options, model = model})
+
     for i, v in ipairs(batchedDataset) do
         io.write('\rBatch number: ' .. i)
         io.flush()
@@ -185,8 +187,6 @@ for iter = 1, epoch do
             end
         end
     end
-
-    torch.save(string.format('../trainings/model_%d.t7', iter), {options = options, model = model})
 end
 
 print("End time: " .. os.date('%m-%d %H:%M:%S', os.time()))

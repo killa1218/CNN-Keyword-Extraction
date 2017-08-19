@@ -39,10 +39,10 @@ function plaincnn(options)
     end
 
     local finalPad = nn.Sequential():add(nn.Padding(2, -leftPadSize)):add(nn.Padding(2, rightPadSize))
-    modelConvolution:add(finalPad):add(nn.TemporalConvolution(channelSize, math.floor(channelSize / 2), kernalWidth)):add(nn.LeakyReLU())
+    --modelConvolution:add(finalPad):add(nn.TemporalConvolution(channelSize, math.floor(channelSize / 2), kernalWidth)):add(nn.LeakyReLU())
     --modelConvolution:add(finalPad):add(nn.TemporalConvolution(channelSize, math.floor(channelSize / 2), kernalWidth)):add(nn.Sigmoid())
     finalPad = nn.Sequential():add(nn.Padding(2, -leftPadSize)):add(nn.Padding(2, rightPadSize))
-    modelConvolution:add(finalPad):add(nn.TemporalConvolution(math.floor(channelSize / 2), 1, kernalWidth)):add(nn.Sigmoid())
+    modelConvolution:add(finalPad):add(nn.TemporalConvolution(math.floor(channelSize), 1, kernalWidth)):add(nn.Sigmoid())
 
     -- MODEL Build whole model
     local model = nn.Sequential()
